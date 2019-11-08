@@ -35,18 +35,28 @@ TOTAL_WEIGHT = 1.0
 
 TRANSFER_ROUNDS = 3
 
+VGG19_MEAN_VALUES = [103.939, 116.779, 123.68]
+
+'''
+Neural Style Transfer implemented via Keras.
+The source that was helpful in implementation: https://keras.io/examples/neural_style_transfer/
+
+There are 3 transfer rounds.
+'''
 
 
 #=============================<Helper Fuctions>=================================
+
 '''
-TODO: implement this.
-This function should take the tensor and re-convert it to an image.
+Deprocesses a matrix to an RGB image.
+Implementation taken from https://keras.io/examples/neural_style_transfer/
 '''
 def deprocessImage(x):
     x = x.reshape((CONTENT_IMG_H, CONTENT_IMG_W, 3))
-    x[:, :, 0] += 103.939
-    x[:, :, 1] += 116.779
-    x[:, :, 2] += 123.68
+    #These are imagenet mean values.
+    x[:, :, 0] += VGG19_MEAN_VALUES[0]
+    x[:, :, 1] += VGG19_MEAN_VALUES[1]
+    x[:, :, 2] += VGG19_MEAN_VALUES[2]
     # 'BGR'->'RGB'
     x = x[:, :, ::-1]
     x = np.clip(x, 0, 255).astype('uint8')
@@ -69,10 +79,8 @@ def styleLoss(style, gen):
 def contentLoss(content, gen):
     return CONTENT_WEIGHT * K.sum(K.square(gen - content))
 
-# x is (content, style, gen)
-def totalLoss(x):
-    return CONTENT_WEIGHT * contentLoss(x[0], x[2]) + STYLE_WEIGHT * styleLoss(x[1], x[2])
-
+#Calculating variation loss using the generated tensor.
+#Implementation taken from https://keras.io/examples/neural_style_transfer/
 def totalVariationLoss(x):
     a = K.square(
         x[:, :CONTENT_IMG_H - 1, :CONTENT_IMG_W - 1, :] - x[:, 1:, :CONTENT_IMG_W - 1, :])
@@ -110,11 +118,10 @@ def preprocessData(raw):
 
 
 '''
-TODO: Allot of stuff needs to be implemented in this function.
-First, make sure the model is set up properly. TICK
-Then construct the loss function (from content and style loss). TICK
-Gradient functions will also need to be created, or you can use K.Gradients().
-Finally, do the style transfer with gradient descent.
+First, we initialize the VGG19 model.
+Then we construct the loss function (from content and style loss).
+Gradient functions are created using K.Gradients().
+Finally, we do the style transfer with gradient descent and we save the images.
 Save the newly generated and deprocessed images.
 '''
 def styleTransfer(cData, sData, tData):
@@ -170,16 +177,16 @@ def styleTransfer(cData, sData, tData):
             result = np.array(outs[1:]).flatten().astype('float64')
         print("Derivatives: " + str(result))
         return result
-    #x = preprocess_image(base_image_path)
+    
     for i in range(TRANSFER_ROUNDS):
         
         print("   Step %d." % i)
-        #TODO: perform gradient descent using fmin_l_bfgs_b.
-        round_data, tLoss, info = fmin_l_bfgs_b(loss_func, round_data.flatten(), fprime=grad_func, maxfun=10)
+        #Performing gradient descent using fmin_l_bfgs_b.
+        round_data, tLoss, info = fmin_l_bfgs_b(loss_func, round_data.flatten(), fprime=grad_func, maxfun=20)
         print("      Loss: %f." % tLoss)
         img = deprocessImage(round_data)
-        saveFile = "iteration_{}.jpg".format(i)  #TODO: Implement.
-        imsave(saveFile, img)   #Uncomment when everything is working right.
+        saveFile = "iteration_{}.jpg".format(i)  
+        imsave(saveFile, img) 
         print("      Image saved to \"%s\"." % saveFile)
     print("   Transfer complete.")
 
